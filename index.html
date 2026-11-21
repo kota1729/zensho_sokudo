@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <!--
+  ==================================================
+  全商速度検定 模擬練習＆自動採点ツール
+  作成者: 田中孝治&池田虎太郎
+  連絡先: tanaka.kouji.ox@m.ysn21.jp
+  --------------------------------------------------
+  【利用条件】
+  ・本ツールは無償でご利用いただけますが、商用はさけてください。
+  ・導入・ご利用を開始される際は、上記連絡先へ一言ご連絡をお願いいたします。
+  ・学校環境に合わせたコードの改変はご自由にどうぞ。
+  ・文字数やエラー数のカウントはあくまで目安です。完璧には作れないので・・・。
+  ・（GitHub公開版）課題はWebページ上の一覧から選択する方式に改修。
+  ==================================================
+-->
+  <meta charset="UTF-8">
+  <meta name="author" content="山口県立徳山商工高等学校 田中孝治&池田虎太郎">
+  <title>全商ビジネス文書検定 模擬練習＆自動採点ツール</title>
+  <!-- 課題データ（data/tasks.js）と共通処理（js/common.js） -->
+  <script src="data/tasks.js"></script>
+  <script src="js/common.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      padding: 20px;
+      margin: 0 auto;
+      max-width: 1200px;
+      line-height: 1.5;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+
+    .header-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      background: #ffffff;
+      padding: 15px 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e9ecef;
+    }
+
+
+    /* カウントダウン強調表示 */
+    #countdownOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.72);
+      pointer-events: none;
+    }
+
+    #countdownBox {
+      min-width: 360px;
+      padding: 35px 55px 40px;
+      text-align: center;
+      background: #ffffff;
+      border: 3px solid #d32f2f;
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+    }
+
+    #countdownMessage {
+      margin-bottom: 8px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #d32f2f;
+    }
+
+    #countdownNumber {
+      font-size: 96px;
+      line-height: 1;
+      font-weight: 900;
+      color: #d32f2f;
+      font-family: monospace;
+    }
+
+    #timer {
+      font-size: 26px;
+      font-weight: bold;
+      color: #d32f2f;
+      font-family: monospace;
+    }
+
+    .btn {
+      font-size: 15px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      color: white;
+    }
+
+    .btn-primary {
+      background-color: #1976d2;
+    }
+
+    .btn-primary:hover {
+      background-color: #1565c0;
+    }
+
+    .btn-primary:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+      margin-left: 10px;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+
+    .btn-danger:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+
+    .btn-secondary:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-success {
+      background-color: #28a745;
+    }
+
+    .btn-success:hover {
+      background-color: #218838;
+    }
+
+    .btn-info {
+      background-color: #17a2b8;
+    }
+
+    .btn-info:hover {
+      background-color: #138496;
+    }
+
+    .btn-info:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-warning-custom {
+      background-color: #f39c12;
+      color: white;
+    }
+
+    .btn-warning-custom:hover {
+      background-color: #d68910;
+    }
+
+    .btn-warning-custom:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      font-size: 13px;
+      color: #495057;
+      background: #fff;
+      padding: 5px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      border: none;
+      background-color: #6c757d;
+      color: white;
+      cursor: pointer;
+      margin-right: 8px;
+      transition: background-color 0.2s;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background-color: #5a6268;
+    }
+
+    input[type="file"]:disabled {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+    }
+
+    .settings-panel {
+      margin-bottom: 15px;
+      background: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+      font-size: 14px;
+    }
+
+    .settings-panel label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: bold;
+    }
+
+    .settings-panel select {
+      padding: 5px 10px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+    }
+
+    .cbt-container {
+      display: flex;
+      gap: 20px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .column-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #495057;
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 23px;
+    }
+
+    .column-toolbar {
+      margin-bottom: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      height: 35px;
+    }
+
+    .column-toolbar select {
+      padding: 5px 8px;
+      font-size: 13px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+      background: #fff;
+      min-width: 0;
+      max-width: 230px;
+      flex: 1;
+    }
+
+    .column-toolbar select:disabled {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+    }
+
+    a.btn {
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    textarea {
+      width: calc(60ch + 30px + 20px) !important;
+      height: 361px;
+      font-size: 18px;
+      line-height: 1.6;
+      font-family: "MS Gothic", "MS ゴシック", "Osaka-mono", "Courier New", monospace;
+      letter-spacing: 0;
+      padding: 8px 15px;
+      border: 2px solid #ced4da;
+      border-radius: 6px;
+      resize: vertical;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-y: scroll;
+      background-color: #ffffff;
+    }
+
+    #targetArea:read-only {
+      background-color: #f8f9fa;
+      color: #495057;
+      border-color: #28a745;
+    }
+
+    #inputArea:focus {
+      border-color: #1976d2;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.25);
+    }
+
+    #inputArea:disabled {
+      background-color: #e9ecef;
+      opacity: 0.8;
+    }
+
+    #resultBox {
+      margin-top: 25px;
+      padding: 20px;
+      background: #ffffff;
+      border: 2px solid #28a745;
+      border-radius: 8px;
+      display: none;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    #resultBox h3 {
+      margin-top: 0;
+      color: #28a745;
+      border-bottom: 2px solid #28a745;
+      padding-bottom: 8px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .result-card {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+    }
+
+    .result-card .label {
+      font-size: 13px;
+      color: #6c757d;
+    }
+
+    .result-card .value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #212529;
+      margin-top: 5px;
+    }
+
+    .score-container {
+      display: flex;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .score-box {
+      flex: 2;
+      font-size: 24px;
+      color: #1976d2;
+      font-weight: bold;
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #bbdefb;
+    }
+
+    .pass-box {
+      flex: 1;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px;
+      border-radius: 6px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ccc;
+    }
+
+    .pass-pass {
+      background-color: #d4edda;
+      color: #155724;
+      border-color: #c3e6cb;
+    }
+
+    .pass-fail {
+      background-color: #f8d7da;
+      color: #721c24;
+      border-color: #f5c6cb;
+    }
+
+    .diff-section {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+    }
+
+    .diff-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 15px;
+    }
+
+    .diff-box {
+      font-family: "MS Gothic", "MS ゴシック", "Osaka-mono", monospace;
+      font-size: 16px;
+      line-height: 1.8;
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .err-mistake {
+      background-color: #ffcdd2;
+      color: #b71c1c;
+      font-weight: bold;
+      padding: 0 2px;
+      border-radius: 2px;
+      text-decoration: line-through;
+    }
+
+    .err-missing {
+      background-color: #fff9c4;
+      color: #f57f17;
+      font-weight: bold;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .err-extra {
+      background-color: #bbdefb;
+      color: #0d47a1;
+      font-weight: bold;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      width: 95%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #dee2e6;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: #333;
+    }
+
+    .close-btn {
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #aaa;
+      border: none;
+      background: none;
+    }
+
+    .close-btn:hover {
+      color: #000;
+    }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .history-table th,
+    .history-table td {
+      border: 1px solid #dee2e6;
+      padding: 8px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .history-table th {
+      background-color: #f1f3f5;
+      color: #495057;
+      white-space: nowrap;
+    }
+
+    .history-table tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    @media (max-width: 900px) {
+      .cbt-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      textarea {
+        width: 100% !important;
+      }
+
+      .score-container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- カウントダウン中のIME切り替え専用入力欄。画面には表示せず、IMEのフォーカスだけを受け取ります。 -->
+  <input id="imeCheckInput" type="text" autocomplete="off" aria-hidden="true"
+    style="position:fixed; left:-10000px; top:0; width:1px; height:1px; opacity:0; border:0; padding:0;"
+    oninput="this.value='';" />
+
+  <div id="countdownOverlay" aria-hidden="true">
+    <div id="countdownBox">
+      <div id="countdownMessage">用意…</div>
+      <div id="countdownNumber">3</div>
+      <div style="font-size: 16px; font-weight: bold; margin-top: 12px; color: #555;">日本語入力を確認してください</div>
+    </div>
+  </div>
+
+  <h2>全商ビジネス文書検定速度部門 模擬練習＆自動採点ツール</h2>
+
+  <p style="color: #333; font-size: 13px;">
+    ※このサイトを利用した方の検定の合格の有無については一切の責任を負いません。
+    <br>
+    ※全商の検定をイメージして作っただけであり、全く同じシステムとは限らないため予めご了承の上ご利用ください。
+  </p>
+
+  <div class="settings-panel">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <label>
+        <input type="checkbox" id="countNewline" checked onchange="updateTargetCount(); updateInputCount();">
+        改行（Enter）を1文字としてカウント・採点する
+      </label>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <label for="gradeSelect"><strong>受験する級：</strong></label>
+      <select id="gradeSelect" onchange="onGradeChange()">
+        <option value="3" selected>3級 (合格ライン: 300字以上 / エラー10個以内)</option>
+        <option value="2">2級 (合格ライン: 450字以上 / エラー10個以内)</option>
+        <option value="1">1級 (合格ライン: 700字以上 / エラー10個以内)</option>
+      </select>
+      <button class="btn btn-secondary" onclick="toggleHistoryModal()">📊 記録を見る</button>
+    </div>
+  </div>
+
+  <div class="header-panel">
+    <div>
+      <button id="startBtn" class="btn btn-primary" onclick="startTest()" disabled>試験開始 (10分)</button>
+      <button id="stopBtn" class="btn btn-danger" onclick="finishTest()" disabled>途中終了して採点 <span
+          style="font-size: 11px; opacity: 0.8;">(Ctrl+Enter)</span></button>
+      <button id="restartBtn" class="btn btn-success" onclick="restartTest()"
+        style="display: none; margin-left: 10px;">もう一度練習する</button>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+      <div id="timer">残り時間: 10:00</div>
+      <button id="continueBtn" class="btn btn-warning-custom" onclick="continueTyping()"
+        style="display: none; font-size: 13px; padding: 4px 10px;">タイピングを続ける</button>
+    </div>
+  </div>
+
+  <div class="cbt-container">
+    <div class="column">
+      <div class="column-title">
+        <span>【左】課題テキスト（問題文）</span>
+        <span id="targetCharCount" style="font-size: 12px; color: #6c757d;">文字数: 0</span>
+      </div>
+      <div class="column-toolbar">
+        <select id="taskSelect" onchange="onTaskChange()" aria-label="課題を選ぶ"></select>
+        <button id="randomBtn" class="btn btn-info" onclick="pickRandomTask()" style="font-size: 12px; padding: 6px 12px;">🎲 ランダム</button>
+        <button id="backToStartBtn" class="btn btn-warning-custom" onclick="resetToTestStart()" disabled
+          style="font-size: 12px; padding: 6px 12px;">最初に戻る</button>
+      </div>
+      <textarea id="targetArea" placeholder="上の一覧から課題を選択してください..." readonly></textarea>
+    </div>
+
+    <div class="column">
+      <div class="column-title">
+        <span>【右】入力欄</span>
+        <span id="inputCharCount" style="font-size: 12px; color: #6c757d;">文字数: 0</span>
+      </div>
+      <div class="column-toolbar" style="visibility: hidden;"></div>
+      <textarea id="inputArea" placeholder="課題を選んで試験を開始すると、こちらに入力できるようになります..." disabled oninput="updateInputCount()"
+        onkeyup="checkAutoScroll()" onclick="checkAutoScroll()"
+        onpaste="return false;" oncopy="return false;" oncut="return false;" oncontextmenu="return false;"></textarea>
+    </div>
+  </div>
+
+  <div id="resultBox">
+    <h3>【採点結果】</h3>
+    <p id="statusText" style="font-weight: bold; font-size: 16px;"></p>
+
+    <div class="result-grid">
+      <div class="result-card">
+        <div class="label">純字数（得点）</div>
+        <div class="value"><span id="resTotal">0</span> 文字</div>
+      </div>
+      <div class="result-card" style="border-color: #f5c6cb; background-color: #f8d7da;">
+        <div class="label" style="color: #721c24;">総エラー数（減点）</div>
+        <div class="value" style="color: #721c24;"><span id="resErrors">0</span> 個</div>
+      </div>
+      <div class="result-card">
+        <div class="label">総字数（打った文字数）</div>
+        <div class="value"><span id="resInputLen">0</span> 文字</div>
+      </div>
+    </div>
+
+    <div class="score-container">
+      <div class="score-box">
+        得点: <span id="finalScore">0</span> 文字
+      </div>
+      <div id="passBox" class="pass-box">
+        判定: <span id="passStatus">-</span>
+      </div>
+    </div>
+
+    <div class="diff-section">
+      <div class="diff-title">【入力結果のエラー照合】</div>
+      <div class="legend">
+        <div class="legend-item"><span class="err-mistake">赤色</span>：誤字 (間違えて打ち込んだ文字)</div>
+        <div class="legend-item"><span class="err-missing">黄色</span>：脱字 (抜け落ちた問題文の文字)</div>
+        <div class="legend-item"><span class="err-extra">青色</span>：余分字 (余分に入力された文字)</div>
+      </div>
+      <div id="diffDisplay" class="diff-box"></div>
+    </div>
+
+    <p style="font-size: 13px; color: #666; margin-top: 10px; text-align: center;">
+      ※得点 ＝ 総字数 − (エラー数 × 1)<br>
+      ※エラー数が10個以内かつ総字数が選択した級の基準字数−10字（3級:300字, 2級:450字, 1級:700字）以上だと合格となります。<br>
+      ※エラー判定は必ずしも合っているとは限りません。予めご了承ください。
+    </p>
+  </div>
+
+  <div id="historyModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>過去の練習記録一覧</h3>
+        <button class="close-btn" onclick="toggleHistoryModal()">&times;</button>
+      </div>
+      <div id="historyBody"></div>
+      <div style="margin-top: 20px; text-align: right;">
+        <button class="btn btn-danger" onclick="clearHistory()"
+          style="font-size: 13px; padding: 6px 12px;">記録をすべて削除</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="customAlertModal" class="modal">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="customAlertTitle">お知らせ</h3>
+      </div>
+      <p id="customAlertMessage" style="white-space: pre-wrap; font-size: 14px; line-height: 1.8; margin: 0;"></p>
+      <div style="margin-top: 22px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="customAlertCancelBtn" class="btn btn-secondary" style="display:none;">キャンセル</button>
+        <button id="customAlertOkBtn" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mirrorDiv" style="position:absolute; top:-9999px; left:-9999px; visibility:hidden; white-space:pre-wrap; word-break:break-all;"></div>
+
+  <script>
+    let timeLeft = 600;
+    let timerId = null;
+    let readyInterval = null;
+    let currentSourceLabel = "";
+    let isTargetLocked = false;
+    let isTimeUp = false;
+    let targetScrollBlockIndex = 0;
+    let checkpointRecordSaved = false;
+
+    // ==================================================
+    // オリジナルのアラート／確認ダイアログ（ブラウザ標準の alert / confirm の代わり）
+    // ==================================================
+    function showCustomModal(message, isConfirm, title) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("customAlertModal");
+        const titleEl = document.getElementById("customAlertTitle");
+        const msgEl = document.getElementById("customAlertMessage");
+        const okBtn = document.getElementById("customAlertOkBtn");
+        const cancelBtn = document.getElementById("customAlertCancelBtn");
+
+        titleEl.innerText = title || (isConfirm ? "確認" : "お知らせ");
+        msgEl.innerText = message;
+        cancelBtn.style.display = isConfirm ? "inline-block" : "none";
+        modal.style.display = "flex";
+
+        function cleanup(result) {
+          modal.style.display = "none";
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          resolve(result);
+        }
+        function onOk() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+        okBtn.focus();
+      });
+    }
+
+    function customAlert(message, title) {
+      return showCustomModal(message, false, title);
+    }
+
+    function customConfirm(message, title) {
+      return showCustomModal(message, true, title);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      populateTaskSelect("");
+      applyTaskFromUrl();
+
+      const targetArea = document.getElementById("targetArea");
+      const inputArea = document.getElementById("inputArea");
+      let isSyncing = false;
+
+      const observer = new ResizeObserver(entries => {
+        if (isSyncing) return;
+        for (let entry of entries) {
+          isSyncing = true;
+          const currentHeight = entry.target.style.height;
+          if (entry.target === targetArea) {
+            inputArea.style.height = currentHeight;
+          } else {
+            targetArea.style.height = currentHeight;
+          }
+          requestAnimationFrame(() => {
+            isSyncing = false;
+          });
+        }
+      });
+
+      observer.observe(targetArea);
+      observer.observe(inputArea);
+
+      // ==================================================
+      // 採点後の見比べ用：スクロール同期
+      // 入力欄が無効化されている間（＝タイピング中ではなく、
+      // 結果を見比べている間）は、どちらかをスクロールすると
+      // もう一方も同じ位置まで一緒にスクロールする。
+      // タイピング中（inputAreaが有効な間）は、既存の
+      // checkAutoScroll()による自動追従を優先するため同期しない。
+      //
+      // ※以前はグローバルな1つのフラグで「同期処理中は両方の
+      //   scrollイベントを無視」していたため、素早く連続して
+      //   スクロールされた際にユーザー操作によるscrollイベントまで
+      //   取り逃してしまい、ラグ（ズレ）が生じていた。
+      //   ここでは「自分がプログラムで書き込んだ直後の1回分の
+      //   scrollイベントだけ」を無視する方式にし、遅延なく
+      //   即時・確実に同じ位置まで反映されるようにしている。
+      // ==================================================
+      let ignoreNextTargetScroll = false;
+      let ignoreNextInputScroll = false;
+
+      targetArea.addEventListener("scroll", () => {
+        if (ignoreNextTargetScroll) {
+          ignoreNextTargetScroll = false;
+          return;
+        }
+        if (!inputArea.disabled) return;
+        ignoreNextInputScroll = true;
+        inputArea.scrollTop = targetArea.scrollTop;
+      });
+
+      inputArea.addEventListener("scroll", () => {
+        if (ignoreNextInputScroll) {
+          ignoreNextInputScroll = false;
+          return;
+        }
+        if (!inputArea.disabled) return;
+        ignoreNextTargetScroll = true;
+        targetArea.scrollTop = inputArea.scrollTop;
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && e.key === "Enter") {
+          const stopBtn = document.getElementById("stopBtn");
+          if (!stopBtn.disabled && stopBtn.style.display !== "none") {
+            e.preventDefault();
+            finishTest();
+          }
+        }
+      });
+    });
+
+    // ==================================================
+    // 課題の選択（data/tasks.js の課題をWeb上で選ぶ）
+    // value の形式:  "b:<級>:<番号>"
+    // ==================================================
+    function getBuiltinTasks(grade) {
+      const all = window.ZENSHO_TASKS || {};
+      return all[String(grade)] || [];
+    }
+
+    function populateTaskSelect(selectedValue) {
+      const sel = document.getElementById("taskSelect");
+      const grade = parseInt(document.getElementById("gradeSelect").value, 10);
+      sel.innerHTML = "";
+
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = "-- 課題を選んでください --";
+      sel.appendChild(first);
+
+      const tasks = getBuiltinTasks(grade);
+      const g1 = document.createElement("optgroup");
+      g1.label = `${grade}級の課題（${tasks.length}件）`;
+      tasks.forEach(t => {
+        const o = document.createElement("option");
+        o.value = `b:${grade}:${t.no}`;
+        o.textContent = `第${t.no}回`;
+        g1.appendChild(o);
+      });
+      sel.appendChild(g1);
+
+      sel.value = selectedValue || "";
+      if (sel.value !== (selectedValue || "")) sel.value = "";
+    }
+
+    function setSelectorsDisabled(disabled) {
+      ["taskSelect", "gradeSelect", "randomBtn"].forEach(id => {
+        document.getElementById(id).disabled = disabled;
+      });
+    }
+
+    function clearTarget() {
+      document.getElementById("targetArea").value = "";
+      currentSourceLabel = "";
+      isTargetLocked = false;
+      document.getElementById("startBtn").disabled = true;
+      updateTargetCount();
+    }
+
+    // 級を変えたら、その級の課題一覧に切り替える
+    function onGradeChange() {
+      populateTaskSelect("");
+      clearTarget();
+    }
+
+    function onTaskChange() {
+      const value = document.getElementById("taskSelect").value;
+      if (!value) {
+        clearTarget();
+        return;
+      }
+      const parts = value.split(":");
+      if (parts[0] === "b") {
+        const grade = parseInt(parts[1], 10);
+        const task = getBuiltinTasks(grade).find(t => t.no === parts[2]);
+        if (!task) { clearTarget(); return; }
+        applyTarget(task.text, `第${task.no}回`);
+      }
+    }
+
+    function pickRandomTask() {
+      const grade = parseInt(document.getElementById("gradeSelect").value, 10);
+      const tasks = getBuiltinTasks(grade);
+      if (tasks.length === 0) return;
+      const t = tasks[Math.floor(Math.random() * tasks.length)];
+      document.getElementById("taskSelect").value = `b:${grade}:${t.no}`;
+      onTaskChange();
+    }
+
+    // 課題文を整えて左欄に表示し、試験開始できる状態にする。
+    function applyTarget(rawText, label) {
+      const area = document.getElementById("targetArea");
+      area.value = ZenshoCommon.prepareTarget(rawText);
+      area.scrollTop = 0;
+      updateTargetCount();
+
+      currentSourceLabel = label;
+      isTargetLocked = true;
+      document.getElementById("startBtn").disabled = false;
+    }
+
+    // URLの ?task=b:3:01 で課題を直接指定できる
+    function applyTaskFromUrl() {
+      const value = new URLSearchParams(location.search).get("task");
+      if (!value) return;
+      if (value.startsWith("b:")) {
+        const g = value.split(":")[1];
+        if (["1", "2", "3"].includes(g)) document.getElementById("gradeSelect").value = g;
+      }
+      populateTaskSelect(value);
+      if (document.getElementById("taskSelect").value) onTaskChange();
+    }
+
+    function getNormalizedText(elementId) {
+      const countNewline = document.getElementById("countNewline").checked;
+      let text = document.getElementById(elementId).value;
+      if (!countNewline) {
+        text = text.replace(/\r?\n/g, "");
+      } else {
+        text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      }
+      return text;
+    }
+
+    function updateTargetCount() {
+      const text = getNormalizedText("targetArea");
+      document.getElementById("targetCharCount").innerText = `文字数: ${text.length}`;
+    }
+
+    function getCurrentCursorLineIndex(textarea) {
+      const mirror = document.getElementById("mirrorDiv");
+      const computed = window.getComputedStyle(textarea);
+
+      mirror.style.width = computed.width;
+      mirror.style.fontFamily = computed.fontFamily;
+      mirror.style.fontSize = computed.fontSize;
+      mirror.style.lineHeight = computed.lineHeight;
+      mirror.style.padding = computed.padding;
+      mirror.style.border = computed.border;
+      mirror.style.boxSizing = computed.boxSizing;
+
+      const caretPos = textarea.selectionStart !== undefined ? textarea.selectionStart : textarea.value.length;
+      const textBefore = textarea.value.substring(0, caretPos);
+
+      mirror.textContent = textBefore;
+      const span = document.createElement("span");
+      span.textContent = "|";
+      mirror.appendChild(span);
+
+      const fontSize = parseFloat(computed.fontSize);
+      const lineHeight = computed.lineHeight === "normal" ? fontSize * 1.6 : parseFloat(computed.lineHeight);
+      const spanTop = span.offsetTop - parseFloat(computed.paddingTop || 0);
+      const currentLineIndex = Math.max(0, Math.round(spanTop / lineHeight));
+
+      return currentLineIndex;
+    }
+
+    function checkAutoScroll() {
+      const inputArea = document.getElementById("inputArea");
+      const targetArea = document.getElementById("targetArea");
+
+      const computed = window.getComputedStyle(inputArea);
+      const fontSize = parseFloat(computed.fontSize);
+      const lineHeight = computed.lineHeight === "normal" ? fontSize * 1.6 : parseFloat(computed.lineHeight);
+
+      const paddingTop = parseFloat(computed.paddingTop || 0);
+      const paddingBottom = parseFloat(computed.paddingBottom || 0);
+      const visibleHeight = inputArea.clientHeight - paddingTop - paddingBottom;
+      const visibleLines = Math.max(1, Math.floor(visibleHeight / lineHeight));
+
+      const currentLineIndex = getCurrentCursorLineIndex(inputArea);
+
+      const overflowLines = currentLineIndex - (visibleLines - 1);
+
+      let requiredBlock = 0;
+      if (overflowLines > 0) {
+        requiredBlock = Math.ceil(overflowLines / 4);
+      }
+
+      // ブロック単位の計算には端数の誤差が出ることがあるため、
+      // スクロール可能な最大値でクランプし、下端を必ず超えないようにする
+      const maxScrollTop = Math.max(0, targetArea.scrollHeight - targetArea.clientHeight);
+      let targetScrollTop = Math.min(requiredBlock * 4 * lineHeight, maxScrollTop);
+
+      // 自動スクロールは常に4行ずつ行う。
+      // 入力末尾に到達しても一気に最下部へ移動せず、
+      // 4行分ずつ順番にスクロールする。
+
+      if (requiredBlock !== targetScrollBlockIndex || Math.round(targetArea.scrollTop) !== Math.round(targetScrollTop)) {
+        targetScrollBlockIndex = requiredBlock;
+        targetArea.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    function updateInputCount() {
+      const text = getNormalizedText("inputArea");
+      document.getElementById("inputCharCount").innerText = `文字数: ${text.length}`;
+      checkAutoScroll();
+    }
+
+    function startTest() {
+      if (!isTargetLocked) {
+        customAlert("Wordファイルを選択してください。");
+        return;
+      }
+
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = true;
+      document.getElementById("backToStartBtn").disabled = false;
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("continueBtn").style.display = "none";
+      setSelectorsDisabled(true);
+      document.getElementById("countNewline").disabled = true;
+      document.getElementById("inputArea").value = "";
+      document.getElementById("targetArea").scrollTop = 0;
+      document.getElementById("inputArea").scrollTop = 0;
+      targetScrollBlockIndex = 0;
+      document.getElementById("resultBox").style.display = "none";
+      updateInputCount();
+      isTimeUp = false;
+      checkpointRecordSaved = false;
+      resetStopBtnLabel();
+
+      // カウントダウン中は通常の入力欄ではなく、IME確認専用の入力欄に
+      // フォーカスを移します。これにより「半角/全角」キーでIMEを切り替えられます。
+      // 入力された文字は即座に消すため、練習本文には入りません。
+      const inputArea = document.getElementById("inputArea");
+      const imeCheckInput = document.getElementById("imeCheckInput");
+      inputArea.disabled = true;
+      inputArea.readOnly = false;
+      imeCheckInput.value = "";
+      imeCheckInput.focus();
+
+      let countdown = 3;
+      const countdownOverlay = document.getElementById("countdownOverlay");
+      const countdownNumber = document.getElementById("countdownNumber");
+      countdownOverlay.style.display = "flex";
+      countdownNumber.innerText = countdown;
+      document.getElementById("timer").innerText = `用意... ${countdown}（日本語入力を確認）`;
+
+      readyInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          countdownNumber.innerText = countdown;
+          document.getElementById("timer").innerText = `用意... ${countdown}（日本語入力を確認）`;
+        } else {
+          clearInterval(readyInterval);
+          readyInterval = null;
+          countdownOverlay.style.display = "none";
+          timeLeft = 600;
+          document.getElementById("timer").innerText = "残り時間: 10:00";
+          document.getElementById("inputArea").disabled = false;
+          document.getElementById("inputArea").readOnly = false;
+          document.getElementById("stopBtn").disabled = false;
+          document.getElementById("backToStartBtn").disabled = false;
+          document.getElementById("inputArea").focus();
+
+          timerId = setInterval(updateTimer, 1000);
+        }
+      }, 1000);
+    }
+
+    function updateTimer() {
+      timeLeft--;
+
+      if (timeLeft >= 0) {
+        let min = Math.floor(timeLeft / 60);
+        let sec = timeLeft % 60;
+        document.getElementById("timer").innerText = `残り時間: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+      } else {
+        let overSeconds = Math.abs(timeLeft);
+        let min = Math.floor(overSeconds / 60);
+        let sec = overSeconds % 60;
+        document.getElementById("timer").innerText = `超過時間: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+      }
+
+      if (timeLeft === 0) {
+        // 10分経過時点でいったんタイピングを停止し、
+        // その時点の内容で自動的に採点する。
+        // 続きを打つかどうかは「タイピングを続ける」ボタンが押されるまで待つ。
+        isTimeUp = true;
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+        document.getElementById("inputArea").disabled = true;
+        document.getElementById("backToStartBtn").disabled = true;
+        document.getElementById("continueBtn").style.display = "inline-block";
+
+        // 10分経過時点のチェックポイント採点（続けてタイピング可能な状態を維持する）
+        finishTest(true, true);
+      }
+    }
+
+    function resetToTestStart() {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      if (readyInterval) {
+        clearInterval(readyInterval);
+        readyInterval = null;
+      }
+      document.getElementById("countdownOverlay").style.display = "none";
+
+      const inputArea = document.getElementById("inputArea");
+      inputArea.value = "";
+      inputArea.disabled = true;
+      document.getElementById("targetArea").scrollTop = 0;
+      inputArea.scrollTop = 0;
+      targetScrollBlockIndex = 0;
+      updateInputCount();
+
+      timeLeft = 600;
+      document.getElementById("timer").innerText = "残り時間: 10:00";
+
+      document.getElementById("startBtn").style.display = "inline-block";
+      document.getElementById("startBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+      document.getElementById("backToStartBtn").disabled = true;
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("continueBtn").style.display = "none";
+      document.getElementById("resultBox").style.display = "none";
+
+      setSelectorsDisabled(false);
+      document.getElementById("countNewline").disabled = false;
+      isTimeUp = false;
+      checkpointRecordSaved = false;
+      resetStopBtnLabel();
+    }
+
+    function restartTest() {
+      document.getElementById("inputArea").value = "";
+      document.getElementById("inputArea").disabled = true;
+      document.getElementById("targetArea").scrollTop = 0;
+      document.getElementById("inputArea").scrollTop = 0;
+      targetScrollBlockIndex = 0;
+      updateInputCount();
+      document.getElementById("resultBox").style.display = "none";
+      document.getElementById("timer").innerText = "残り時間: 10:00";
+
+      document.getElementById("startBtn").style.display = "inline-block";
+      document.getElementById("startBtn").disabled = false;
+      document.getElementById("stopBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").disabled = true;
+      document.getElementById("backToStartBtn").disabled = true;
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("continueBtn").style.display = "none";
+
+      setSelectorsDisabled(false);
+      document.getElementById("countNewline").disabled = false;
+      isTimeUp = false;
+      checkpointRecordSaved = false;
+      resetStopBtnLabel();
+    }
+
+    function continueTyping() {
+      isTimeUp = false;
+      document.getElementById("inputArea").disabled = false;
+      document.getElementById("inputArea").focus();
+      document.getElementById("continueBtn").style.display = "none";
+      document.getElementById("stopBtn").disabled = false;
+      document.getElementById("stopBtn").style.display = "inline-block";
+      document.getElementById("backToStartBtn").disabled = false;
+      document.getElementById("restartBtn").style.display = "none";
+
+      // 続けてタイピングする場合は、直前の10分経過時点の採点結果をいったん隠す。
+      document.getElementById("resultBox").style.display = "none";
+
+      // 続けてタイピングしている間は「途中終了して採点」ではなく
+      // 「終了して採点」という表記に変更する（既に10分は経過済みのため）。
+      document.getElementById("stopBtn").innerHTML =
+        '終了して採点 <span style="font-size: 11px; opacity: 0.8;">(Ctrl+Enter)</span>';
+
+      // 「継続して打つ」が押されたら、超過時間のカウントを再開する。
+      if (timerId) {
+        clearInterval(timerId);
+      }
+      timerId = setInterval(updateTimer, 1000);
+    }
+
+    // 「終了して採点」に変更したボタン文言を、初期状態の
+    // 「途中終了して採点」に戻す（新しい試験の開始時に使用）。
+    function resetStopBtnLabel() {
+      document.getElementById("stopBtn").innerHTML =
+        '途中終了して採点 <span style="font-size: 11px; opacity: 0.8;">(Ctrl+Enter)</span>';
+    }
+
+    // 採点前に「お手本側と同じルール」で無駄な改行を自動削除する。
+    // これにより、行末に誤ってEnterを押しただけの改行などが
+    // エラーとしてカウントされないようにする。
+    function normalizeInputBeforeScoring() {
+      const inputArea = document.getElementById("inputArea");
+      let text = inputArea.value;
+
+      // 改行コードを統一
+      text = ZenshoCommon.normalizeNewlines(text);
+
+      // 課題文の整形時に使っている「無駄な改行」の削除ルールをそのまま使用
+      text = ZenshoCommon.joinBrokenLines(text);
+
+      // お手本側でも末尾の改行は削除しているため、入力側も削除
+      text = text.replace(/\n+$/, "");
+
+      inputArea.value = text;
+      return text;
+    }
+
+    function finishTest(isTimeoutCall = false, atCheckpoint = false) {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      if (readyInterval) {
+        clearInterval(readyInterval);
+        readyInterval = null;
+      }
+
+      document.getElementById("inputArea").disabled = true;
+
+      if (atCheckpoint) {
+        // 10分経過時点のチェックポイント採点。
+        // 「タイピングを続ける」で再開できる状態を保つため、
+        // 開始・終了ボタンや課題ファイル欄の状態はここでは変更しない。
+        document.getElementById("stopBtn").style.display = "none";
+        document.getElementById("stopBtn").disabled = true;
+        document.getElementById("backToStartBtn").disabled = true;
+        document.getElementById("restartBtn").style.display = "inline-block";
+        document.getElementById("continueBtn").style.display = "inline-block";
+      } else {
+        document.getElementById("startBtn").style.display = "inline-block";
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").style.display = "none";
+        document.getElementById("backToStartBtn").disabled = true;
+        document.getElementById("restartBtn").style.display = "inline-block";
+
+        setSelectorsDisabled(false);
+        document.getElementById("countNewline").disabled = false;
+      }
+
+      let timeString = "";
+      let elapsed = 600 - timeLeft;
+      let min = Math.floor(Math.abs(elapsed) / 60);
+      let sec = Math.abs(elapsed) % 60;
+      let minSecStr = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+
+      // 10分経過後に「タイピングを続ける」を押した場合、
+      // timeLeft は 0 からマイナス方向へ進むため、
+      // 超過時間は elapsed ではなく「10分を超えた分」だけを表示する。
+      let overtimeSeconds = Math.max(0, Math.abs(timeLeft));
+      let overtimeMin = Math.floor(overtimeSeconds / 60);
+      let overtimeSec = overtimeSeconds % 60;
+      let overtimeStr = `${overtimeMin}:${overtimeSec < 10 ? '0' : ''}${overtimeSec}`;
+
+      if (atCheckpoint) {
+        timeString = "10:00 (自動採点)";
+        document.getElementById("timer").innerText = `かかった時間: ${timeString}`;
+      } else if (elapsed <= 600 && !isTimeoutCall) {
+        timeString = `${minSecStr} (途中終了)`;
+        document.getElementById("timer").innerText = `かかった時間: ${timeString}`;
+      } else {
+        // 例：10分10秒経過 →「10:00 + 超過 00:10」
+        timeString = `10:00 + 超過 ${overtimeStr}`;
+        document.getElementById("timer").innerText = `合計時間: ${timeString}`;
+      }
+
+      const target = getNormalizedText("targetArea");
+      // 途中終了・10分経過後の終了・10分経過後に継続してからの終了、
+      // いずれの場合も採点直前に無駄な改行を自動削除する。
+      normalizeInputBeforeScoring();
+      const input = getNormalizedText("inputArea");
+      updateInputCount();
+      const selectedGrade = parseInt(document.getElementById("gradeSelect").value, 10);
+
+      const result = scoreZenshoTyping(target, input, selectedGrade);
+
+      document.getElementById("resTotal").innerText = result.pureLength;
+      document.getElementById("resErrors").innerText = result.totalErrors;
+      document.getElementById("resInputLen").innerText = result.inputLength;
+      document.getElementById("finalScore").innerText = result.netSpeed;
+
+      // 10分経過後に「タイピングを続ける」で継続入力してから採点した場合は、
+      // 合否の判定そのものを行わない（正規の10分間で測っていないため）。
+      const isOvertimeFinal = !atCheckpoint && (elapsed > 600 || isTimeoutCall);
+
+      const passBox = document.getElementById("passBox");
+      const passStatus = document.getElementById("passStatus");
+      if (isOvertimeFinal) {
+        passBox.className = "pass-box";
+        passStatus.innerText = "-";
+      } else if (result.isPass) {
+        passBox.className = "pass-box pass-pass";
+        passStatus.innerText = "合格";
+      } else {
+        passBox.className = "pass-box pass-fail";
+        passStatus.innerText = "不合格";
+      }
+
+      document.getElementById("diffDisplay").innerHTML = result.diffHtml;
+
+      document.getElementById("statusText").innerText = atCheckpoint
+        ? "10分経過したため自動採点しました。続けて入力する場合は「タイピングを続ける」を押してください。"
+        : (isOvertimeFinal ? "タイムアップ後の継続練習お疲れ様でした！" : "途中終了して採点しました。");
+      document.getElementById("resultBox").style.display = "block";
+
+      // 10分経過時点の自動採点記録を保存している場合、
+      // その後に続けてタイピングして終了したときは、
+      // 10分時点の記録を削除し、超過後の最終結果だけを残す。
+      if (isOvertimeFinal && checkpointRecordSaved) {
+        removeLatestCheckpointRecord();
+      }
+
+      saveRecord({
+        date: new Date().toLocaleString(),
+        source: `${currentSourceLabel} (${selectedGrade}級)`,
+        timeStr: timeString,
+        mistakes: result.mistakesCount,
+        missing: result.missingCount,
+        extra: result.extraCount,
+        errors: result.totalErrors,
+        scoreText: `${result.netSpeed}字`,
+        passText: isOvertimeFinal ? "-" : (result.isPass ? "合格" : "不合格")
+      });
+
+      if (atCheckpoint) {
+        checkpointRecordSaved = true;
+      } else {
+        checkpointRecordSaved = false;
+      }
+    }
+
+    // このHTMLファイルの保存場所（URL）ごとに履歴を分けて保存するためのキーを生成する。
+    // 同じファイル名でも、置いてある場所（パス）が違えば別の記録として扱われる。
+    function getHistoryStorageKey() {
+      return "zensho_typing_history::" + location.href;
+    }
+
+    function saveRecord(recordData) {
+      let history = JSON.parse(localStorage.getItem(getHistoryStorageKey()) || "[]");
+      history.unshift(recordData);
+      localStorage.setItem(getHistoryStorageKey(), JSON.stringify(history));
+    }
+
+    function removeLatestCheckpointRecord() {
+      let history = JSON.parse(localStorage.getItem(getHistoryStorageKey()) || "[]");
+
+      // 直前に保存した「10:00 (自動採点)」の記録だけを削除する。
+      // 課題名・級も一致させ、別の試験の記録は削除しない。
+      const targetSource = `${currentSourceLabel} (${document.getElementById("gradeSelect").value}級)`;
+      const index = history.findIndex(item =>
+        item &&
+        item.timeStr === "10:00 (自動採点)" &&
+        item.source === targetSource
+      );
+
+      if (index !== -1) {
+        history.splice(index, 1);
+        localStorage.setItem(getHistoryStorageKey(), JSON.stringify(history));
+      }
+    }
+
+    function toggleHistoryModal() {
+      const modal = document.getElementById("historyModal");
+      if (!modal) return;
+
+      if (modal.style.display === "flex") {
+        modal.style.display = "none";
+      } else {
+        try {
+          renderHistoryTable();
+        } catch (e) {
+          console.error("履歴の描画中にエラーが発生しました:", e);
+        }
+        modal.style.display = "flex";
+      }
+    }
+
+    function renderHistoryTable() {
+      const historyBody = document.getElementById("historyBody");
+      let history = JSON.parse(localStorage.getItem(getHistoryStorageKey()) || "[]");
+
+      if (history.length === 0) {
+        historyBody.innerHTML = "<p style='text-align: center; color: #666;'>まだ記録がありません。</p>";
+        return;
+      }
+
+      let html = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>課題 / 級</th>
+              <th>終了状態</th>
+              <th>誤字</th>
+              <th>脱字</th>
+              <th>余分字</th>
+              <th>総エラー</th>
+              <th>得点（純字数）</th>
+              <th>判定</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      history.forEach(item => {
+        let badgeColor = item.passText === "合格" ? "color: #155724; font-weight: bold;" :
+          (item.passText === "不合格" ? "color: #721c24; font-weight: bold;" : "color: #6c757d; font-weight: bold;");
+        html += `
+          <tr>
+            <td>${item.date || "-"}</td>
+            <td style="text-align: left; word-break: break-all;">${escapeHtml(item.source || "-")}</td>
+            <td>${item.timeStr || "-"}</td>
+            <td>${item.mistakes || 0}</td>
+            <td>${item.missing || 0}</td>
+            <td>${item.extra || 0}</td>
+            <td>${item.errors || 0}</td>
+            <td><strong>${item.scoreText || "0字"}</strong></td>
+            <td style="${badgeColor}">${item.passText || "-"}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      historyBody.innerHTML = html;
+    }
+
+    function clearHistory() {
+      customConfirm("過去の記録をすべて削除してもよろしいですか？").then((ok) => {
+        if (ok) {
+          localStorage.removeItem(getHistoryStorageKey());
+          renderHistoryTable();
+        }
+      });
+    }
+
+    function scoreZenshoTyping(target, input, grade) {
+      if (input.length === 0) {
+        return { pureLength: 0, totalErrors: 0, inputLength: 0, netSpeed: 0, mistakesCount: 0, missingCount: 0, extraCount: 0, isPass: false, diffHtml: "入力がありません。" };
+      }
+
+      let tIdx = 0;
+      let iIdx = 0;
+      let mLen = target.length;
+      let iLen = input.length;
+
+      let rawDiffItems = [];
+      let mistakesCount = 0;
+      let missingCount = 0;
+      let extraCount = 0;
+
+      while (iIdx < iLen || tIdx < mLen) {
+        if (iIdx >= iLen && tIdx < mLen) {
+          break;
+        }
+
+        if (tIdx < mLen && iIdx < iLen && target[tIdx] === input[iIdx]) {
+          rawDiffItems.push({ type: 'match', text: input[iIdx] });
+          tIdx++;
+          iIdx++;
+        } else {
+          let foundInTarget = -1;
+          let foundInInput = -1;
+          let searchLimit = 5;
+
+          for (let step = 1; step <= searchLimit; step++) {
+            if (iIdx + step < iLen && tIdx < mLen && input[iIdx + step] === target[tIdx]) {
+              foundInInput = step;
+              break;
+            }
+            if (tIdx + step < mLen && iIdx < iLen && target[tIdx + step] === input[iIdx]) {
+              foundInTarget = step;
+              break;
+            }
+          }
+
+          if (foundInInput !== -1 && (foundInTarget === -1 || foundInInput <= foundInTarget)) {
+            for (let s = 0; s < foundInInput; s++) {
+              extraCount++;
+              rawDiffItems.push({ type: 'ins', text: input[iIdx] });
+              iIdx++;
+            }
+          } else if (foundInTarget !== -1) {
+            for (let s = 0; s < foundInTarget; s++) {
+              missingCount++;
+              rawDiffItems.push({ type: 'del', text: target[tIdx] });
+              tIdx++;
+            }
+          } else {
+            if (tIdx < mLen && iIdx < iLen) {
+              mistakesCount++;
+              rawDiffItems.push({ type: 'sub', text: input[iIdx], orig: target[tIdx] });
+              tIdx++;
+              iIdx++;
+            } else if (iIdx < mLen) {
+              extraCount++;
+              rawDiffItems.push({ type: 'ins', text: input[iIdx] });
+              iIdx++;
+            }
+          }
+        }
+      }
+
+      let totalErrors = mistakesCount + missingCount + extraCount;
+      let netSpeed = Math.max(0, iLen - totalErrors);
+      let pureLength = netSpeed;
+
+      let diffHtml = "";
+      if (rawDiffItems.length > 0) {
+        let currentGroup = { type: rawDiffItems[0].type, text: rawDiffItems[0].text, origs: [rawDiffItems[0].orig] };
+
+        for (let idx = 1; idx < rawDiffItems.length; idx++) {
+          let item = rawDiffItems[idx];
+          if (item.type === currentGroup.type) {
+            currentGroup.text += item.text;
+            if (item.orig) currentGroup.origs.push(item.orig);
+          } else {
+            diffHtml += renderDiffGroup(currentGroup);
+            currentGroup = { type: item.type, text: item.text, origs: [item.orig] };
+          }
+        }
+        diffHtml += renderDiffGroup(currentGroup);
+      }
+
+      let requiredChars = 310;
+      if (grade === 2) requiredChars = 460;
+      if (grade === 1) requiredChars = 710;
+
+      // 合格条件：打った文字数が（級の基準字数 − 10）以上、かつエラー数が10個以内。
+      // （3級:300字以上, 2級:450字以上, 1級:700字以上）
+      const isPass = (totalErrors <= 10) && (iLen >= requiredChars - 10);
+
+      return {
+        pureLength: pureLength,
+        totalErrors: totalErrors,
+        inputLength: iLen,
+        netSpeed: netSpeed,
+        mistakesCount: mistakesCount,
+        missingCount: missingCount,
+        extraCount: extraCount,
+        isPass: isPass,
+        diffHtml: diffHtml
+      };
+    }
+
+    function renderDiffGroup(group) {
+      if (group.type === 'match') {
+        return escapeHtml(group.text);
+      } else if (group.type === 'sub') {
+        let origStr = group.origs.join("");
+        return `<span class="err-mistake" title="誤字 (本来: ${escapeHtml(origStr)})">${escapeHtml(group.text)}</span>`;
+      } else if (group.type === 'del') {
+        return `<span class="err-missing" title="脱字">[抜け: ${escapeHtml(group.text)}]</span>`;
+      } else if (group.type === 'ins') {
+        return `<span class="err-extra" title="余分字">${escapeHtml(group.text)}</span>`;
+      }
+      return "";
+    }
+
+    function escapeHtml(str) {
+      if (typeof str !== "string") str = String(str || "");
+      if (str === "\n") return "↵<br>";
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+
+</body>
+
+</html>
