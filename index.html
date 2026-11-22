@@ -556,6 +556,185 @@
       background-color: #f8f9fa;
     }
 
+    /* ===== オンライン対戦 ===== */
+    .battle-panel {
+      margin-bottom: 15px;
+      background: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      font-size: 14px;
+    }
+
+    .battle-panel h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #495057;
+    }
+
+    .battle-panel input[type="text"] {
+      font-size: 14px;
+      padding: 6px 10px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+    }
+
+    .battle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 6px 0;
+    }
+
+    .battle-hint {
+      font-size: 12px;
+      color: #6c757d;
+      margin: 6px 0 0;
+      line-height: 1.6;
+    }
+
+    .battle-vs {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .battle-vs .me {
+      color: #1976d2;
+    }
+
+    .battle-vs .opp {
+      color: #d32f2f;
+    }
+
+    #battleMsg {
+      font-weight: bold;
+      color: #495057;
+    }
+
+    .opp-panel {
+      display: none;
+      margin-top: 18px;
+      padding: 10px 14px 14px;
+      background: #fff;
+      border: 2px solid #d32f2f;
+      border-radius: 8px;
+    }
+
+    .opp-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .opp-head .opp-name {
+      color: #d32f2f;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .opp-viewport {
+      overflow: hidden;
+      margin: 0 auto;
+    }
+
+    .opp-scaler {
+      transform-origin: 0 0;
+      width: max-content;
+    }
+
+    .opp-pair {
+      display: flex;
+      gap: 20px;
+      width: max-content;
+    }
+
+    #oppPair textarea {
+      width: calc(60ch + 30px + 20px) !important;
+      resize: none;
+      pointer-events: none;
+      background-color: #f8f9fa;
+    }
+
+    #oppTarget {
+      border-color: #28a745;
+    }
+
+    #oppInput {
+      border-color: #d32f2f;
+    }
+
+    #battleResult {
+      margin-top: 18px;
+    }
+
+    #battleResult .verdict {
+      font-size: 26px;
+      font-weight: bold;
+      text-align: center;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    #battleResult .verdict.win {
+      background: #fff3cd;
+      color: #856404;
+      border: 2px solid #ffc107;
+    }
+
+    #battleResult .verdict.lose {
+      background: #e2e3e5;
+      color: #383d41;
+      border: 2px solid #adb5bd;
+    }
+
+    #battleResult .verdict.draw {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 2px solid #17a2b8;
+    }
+
+    #battleResult table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    #battleResult th,
+    #battleResult td {
+      border: 1px solid #dee2e6;
+      padding: 8px;
+      text-align: center;
+    }
+
+    #battleResult th {
+      background: #f1f3f5;
+    }
+
+    /* 対戦中は、課題の選択と通常の開始ボタン類を隠す */
+    body.battle-on #startBtn,
+    body.battle-on #restartBtn,
+    body.battle-on #continueBtn,
+    body.battle-on #backToStartBtn,
+    body.battle-on #gradeRow,
+    body.battle-on #countNewlineLabel {
+      display: none !important;
+    }
+
+    body.battle-on .column-toolbar {
+      visibility: hidden;
+    }
+
+    body.battle-lobby #stopBtn {
+      display: none !important;
+    }
+
     @media (max-width: 900px) {
       .cbt-container {
         flex-direction: column;
@@ -588,7 +767,6 @@
   </div>
 
   <h2>全商ビジネス文書検定速度部門 模擬練習＆自動採点ツール</h2>
-  <p><a class="btn btn-info" href="online.html" style="display:inline-block;text-decoration:none;">🌐 オンラインで対戦</a></p>
 
   <p style="color: #333; font-size: 13px;">
     ※このサイトを利用した方の検定の合格の有無については一切の責任を負いません。
@@ -598,19 +776,58 @@
 
   <div class="settings-panel">
     <div style="display: flex; flex-direction: column; gap: 8px;">
-      <label>
+      <label id="countNewlineLabel">
         <input type="checkbox" id="countNewline" checked onchange="updateTargetCount(); updateInputCount();">
         改行（Enter）を1文字としてカウント・採点する
       </label>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span id="gradeRow" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       <label for="gradeSelect"><strong>受験する級：</strong></label>
       <select id="gradeSelect" onchange="onGradeChange()">
         <option value="3" selected>3級 (合格ライン: 300字以上 / エラー10個以内)</option>
         <option value="2">2級 (合格ライン: 450字以上 / エラー10個以内)</option>
         <option value="1">1級 (合格ライン: 700字以上 / エラー10個以内)</option>
       </select>
+      </span>
       <button class="btn btn-secondary" onclick="toggleHistoryModal()">📊 記録を見る</button>
+    </div>
+  </div>
+
+  <div id="battlePanel" class="battle-panel">
+    <h3>🥊 オンライン対戦（2人）</h3>
+
+    <div id="battleConnect">
+      <div class="battle-row">
+        <label>プレイヤー名 <input type="text" id="battleName" maxlength="12" placeholder="例: たろう" autocomplete="off"></label>
+        <label>合言葉 <input type="text" id="battlePass" maxlength="40" placeholder="対戦相手と同じ言葉" autocomplete="off"></label>
+        <button id="battleConnectBtn" class="btn btn-primary" onclick="Battle.connect()">接続する</button>
+      </div>
+      <p class="battle-hint">
+        同じ合言葉を入力した2人が同じ部屋に入ります（サーバー不要・ブラウザ同士で直接通信）。<br>
+        お題の決め方：<strong>級は部屋を作った人（先に入った人）が選び、課題は2人が「準備OK」を押したときの乱数の合計で決まります。</strong>どちらも課題を選べず、同じ部屋での再戦では出題済みの課題は避けます。<br>
+        勝敗は <strong>得点（総字数−エラー数）</strong> の高い方、同点ならエラーが少ない方、それも同じなら早く終えた方です。<br>
+        ※学校のネットワークなどで通信が制限されていると接続できないことがあります。
+      </p>
+    </div>
+
+    <div id="battleRoom" style="display: none;">
+      <div class="battle-row">
+        <span class="battle-vs"><span class="me" id="battleMe"></span> VS <span class="opp" id="battleOpp"></span></span>
+        <button class="btn btn-danger" style="margin-left: auto; padding: 6px 12px; font-size: 13px;" onclick="Battle.leave()">退室する</button>
+      </div>
+      <div class="battle-row">
+        <span>級：</span>
+        <select id="battleGrade" onchange="Battle.onGradeSelect()" style="padding: 5px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ced4da;">
+          <option value="3">3級</option>
+          <option value="2">2級</option>
+          <option value="1">1級</option>
+        </select>
+        <span id="battleGradeText" style="display: none; font-weight: bold;"></span>
+        <button id="battleReadyBtn" class="btn btn-success" onclick="Battle.toggleReady()">準備OK</button>
+        <button id="battleAgainBtn" class="btn btn-warning-custom" style="display: none;" onclick="Battle.rematch()">もう一度対戦する</button>
+      </div>
+      <div id="battleMsg"></div>
     </div>
   </div>
 
@@ -655,6 +872,28 @@
         onpaste="return false;" oncopy="return false;" oncut="return false;" oncontextmenu="return false;"></textarea>
     </div>
   </div>
+
+  <div id="oppPanel" class="opp-panel">
+    <div class="opp-head">
+      <span><span class="opp-name" id="oppName"></span> さんの画面
+        <span style="color: #6c757d; font-size: 12px;">（左: お手本 / 右: 入力）</span></span>
+      <span>
+        <span id="oppStatus" style="font-weight: bold;"></span>
+        <span id="oppCount" style="margin: 0 10px; color: #495057;"></span>
+        <button id="oppToggleBtn" class="btn btn-info" style="font-size: 12px; padding: 5px 12px;" onclick="Battle.toggleBig()" disabled>相手の画面を大きく見る</button>
+      </span>
+    </div>
+    <div id="oppViewport" class="opp-viewport">
+      <div id="oppScaler" class="opp-scaler">
+        <div id="oppPair" class="opp-pair">
+          <textarea id="oppTarget" readonly tabindex="-1" aria-label="相手のお手本"></textarea>
+          <textarea id="oppInput" readonly tabindex="-1" aria-label="相手の入力"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="battleResult"></div>
 
   <div id="resultBox">
     <h3>【採点結果】</h3>
@@ -1046,6 +1285,7 @@
       const text = getNormalizedText("inputArea");
       document.getElementById("inputCharCount").innerText = `文字数: ${text.length}`;
       checkAutoScroll();
+      if (window.Battle) Battle.onLocalInput();
     }
 
     function startTest() {
@@ -1122,6 +1362,16 @@
         let min = Math.floor(overSeconds / 60);
         let sec = overSeconds % 60;
         document.getElementById("timer").innerText = `超過時間: ${min}:${sec < 10 ? '0' : ''}${sec}`;
+      }
+
+      if (timeLeft === 0 && window.Battle && Battle.active) {
+        // 対戦中は10分で打ち切り、そのまま最終採点する（続けて打つことはできない）。
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+        finishTest(false, false);
+        return;
       }
 
       if (timeLeft === 0) {
@@ -1305,6 +1555,9 @@
       if (atCheckpoint) {
         timeString = "10:00 (自動採点)";
         document.getElementById("timer").innerText = `かかった時間: ${timeString}`;
+      } else if (window.Battle && Battle.active && timeLeft <= 0) {
+        timeString = "10:00 (時間終了)";
+        document.getElementById("timer").innerText = `かかった時間: ${timeString}`;
       } else if (elapsed <= 600 && !isTimeoutCall) {
         timeString = `${minSecStr} (途中終了)`;
         document.getElementById("timer").innerText = `かかった時間: ${timeString}`;
@@ -1331,7 +1584,8 @@
 
       // 10分経過後に「タイピングを続ける」で継続入力してから採点した場合は、
       // 合否の判定そのものを行わない（正規の10分間で測っていないため）。
-      const isOvertimeFinal = !atCheckpoint && (elapsed > 600 || isTimeoutCall);
+      const isBattle = !!(window.Battle && Battle.active);
+      const isOvertimeFinal = !atCheckpoint && !isBattle && (elapsed > 600 || isTimeoutCall);
 
       const passBox = document.getElementById("passBox");
       const passStatus = document.getElementById("passStatus");
@@ -1350,7 +1604,7 @@
 
       document.getElementById("statusText").innerText = atCheckpoint
         ? "10分経過したため自動採点しました。続けて入力する場合は「タイピングを続ける」を押してください。"
-        : (isOvertimeFinal ? "タイムアップ後の継続練習お疲れ様でした！" : "途中終了して採点しました。");
+        : (isBattle ? "対戦の勝敗は上の「対戦結果」に表示されます。" : (isOvertimeFinal ? "タイムアップ後の継続練習お疲れ様でした！" : "途中終了して採点しました。"));
       document.getElementById("resultBox").style.display = "block";
 
       // 10分経過時点の自動採点記録を保存している場合、
@@ -1362,7 +1616,7 @@
 
       saveRecord({
         date: new Date().toLocaleString(),
-        source: `${currentSourceLabel} (${selectedGrade}級)`,
+        source: `${currentSourceLabel} (${selectedGrade}級${isBattle ? "・対戦" : ""})`,
         timeStr: timeString,
         mistakes: result.mistakesCount,
         missing: result.missingCount,
@@ -1376,6 +1630,14 @@
         checkpointRecordSaved = true;
       } else {
         checkpointRecordSaved = false;
+      }
+
+      if (isBattle) {
+        Battle.onLocalFinish({
+          text: document.getElementById("inputArea").value,
+          result: result,
+          elapsed: Math.min(600, Math.max(0, elapsed))
+        });
       }
     }
 
@@ -1618,6 +1880,7 @@
     }
   </script>
 
+  <script src="js/battle.js"></script>
 </body>
 
 </html>
