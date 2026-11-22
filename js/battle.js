@@ -124,6 +124,18 @@
     return !!(timerId || readyInterval);
   }
 
+  // ロビー画面（接続・準備）を開く／閉じる
+  Battle.openLobby = function () {
+    if (isTestRunning()) { customAlert("練習中は開けません。練習を終えてから開いてください。"); return; }
+    document.body.classList.add("view-lobby");
+    window.scrollTo(0, 0);
+  };
+
+  Battle.closeLobby = function () {
+    if (Battle.active) return;
+    document.body.classList.remove("view-lobby");
+  };
+
   Battle.connect = function () {
     var name = clean($("battleName").value, 12);
     var pass = $("battlePass").value.trim();
@@ -151,7 +163,7 @@
       phase = "lobby";
       prevCountNewline = $("countNewline").checked;
       $("countNewline").checked = true; // 採点条件を2人でそろえる
-      document.body.classList.add("battle-on", "battle-lobby");
+      document.body.classList.add("battle-on", "view-lobby");
 
       // 通常練習の画面をいったん初期状態に戻す
       restartTest();
@@ -168,6 +180,7 @@
       $("battleConnect").style.display = "none";
       $("battleRoom").style.display = "block";
       $("battleMe").textContent = me.name;
+      $("battleBarMe").textContent = me.name;
       refreshRoles();
     }).catch(function (e) {
       $("battleConnectBtn").disabled = false;
@@ -195,7 +208,7 @@
     phase = "off";
     peers = {};
     opp = null;
-    document.body.classList.remove("battle-on", "battle-lobby");
+    document.body.classList.remove("battle-on", "view-lobby");
     $("countNewline").checked = prevCountNewline;
     $("oppPanel").style.display = "none";
     $("battleResult").innerHTML = "";
@@ -368,7 +381,8 @@
     oppState.dc = false;
     oppState.result = null;
     bigView = false;
-    document.body.classList.remove("battle-lobby");
+    document.body.classList.remove("view-lobby"); // ロビー → 対戦画面へ
+    window.scrollTo(0, 0);
     $("battleResult").innerHTML = "";
 
     $("gradeSelect").value = String(g);
@@ -479,7 +493,8 @@
     clearTarget();
     populateTaskSelect("");
     setSelectorsDisabled(true);
-    document.body.classList.add("battle-lobby");
+    document.body.classList.add("view-lobby"); // 対戦画面 → ロビーへ
+    window.scrollTo(0, 0);
     $("battleResult").innerHTML = "";
     $("oppPanel").style.display = "none";
     // 相手が先に再戦ボタンを押していても準備状態は保つ（ready は go のときだけ消える）
@@ -492,7 +507,16 @@
   // ==================================================
   function renderRoom() {
     if (!Battle.active) return;
-    $("battleOpp").textContent = opp ? opp.name : "（相手を待っています…）";
+    var oppName = opp ? opp.name : "（相手を待っています…）";
+    $("battleOpp").textContent = oppName;
+    $("battleBarOpp").textContent = opp ? opp.name : "相手";
+
+    // 参加者カード（準備状況）
+    var meSt = $("battleMeState"), opSt = $("battleOppState");
+    meSt.textContent = myReady ? "✅ 準備OK" : "準備中…";
+    meSt.className = "pstate" + (myReady ? " ready" : "");
+    opSt.textContent = !opp ? "未接続" : (oppState.ready ? "✅ 準備OK" : "準備中…");
+    opSt.className = "pstate" + (opp && oppState.ready ? " ready" : "");
 
     var sel = $("battleGrade");
     sel.value = String(grade);
@@ -500,34 +524,29 @@
     sel.disabled = phase !== "lobby";
     var gt = $("battleGradeText");
     gt.style.display = isHost ? "none" : "";
-    gt.textContent = grade + "級（部屋を作った相手が選択）";
+    gt.textContent = grade + "級（先に入った相手が選択）";
 
     var ready = $("battleReadyBtn");
-    ready.style.display = phase === "lobby" ? "" : "none";
     ready.disabled = !opp;
     ready.textContent = myReady ? "準備を取り消す" : "準備OK";
     $("battleAgainBtn").style.display = phase === "done" ? "" : "none";
 
-    var msg;
+    var msg = "", barMsg = "";
     if (phase === "lobby") {
-      if (!opp) {
-        msg = "相手の接続を待っています…（相手にも同じ合言葉を入力してもらってください）";
-      } else {
-        msg = opp.name + " さんと接続しました。 あなた: " + (myReady ? "準備OK" : "準備中") +
-          " / 相手: " + (oppState.ready ? "準備OK" : "準備中") +
-          (myReady && !oppState.ready ? "（相手を待っています）" : "") +
-          (!isHost ? "　※級は相手が選びます" : "");
-      }
+      msg = !opp
+        ? "相手の接続を待っています…（相手にも同じ合言葉を入力してもらってください）"
+        : (myReady && !oppState.ready ? "相手の準備を待っています…" :
+          (!myReady && oppState.ready ? "相手は準備OKです。準備ができたら押してください。" :
+            "準備ができたら「準備OK」を押してください。2人とも押すと対戦が始まります。"));
     } else if (phase === "playing") {
-      msg = !myFinished
+      barMsg = !myFinished
         ? "対戦中！ 先に終えた人は、相手の画面を大きくして見られます。"
         : "終了しました。相手の入力が終わるのを待っています。下の「相手の画面を大きく見る」で様子を見られます。";
     } else if (phase === "done") {
-      msg = "対戦が終わりました。結果は下に表示されています。";
-    } else {
-      msg = "";
+      barMsg = "対戦が終わりました。結果は下に表示されています。もう一度対戦するときは「ロビーに戻る」を押してください。";
     }
     $("battleMsg").textContent = msg;
+    $("battleBarMsg").textContent = barMsg;
   }
 
   function renderOpp() {
