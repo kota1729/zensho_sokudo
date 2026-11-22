@@ -5,21 +5,20 @@
   <title>オンライン対戦 | 全商ビジネス文書検定</title>
   <link rel="stylesheet" href="online.css">
   <script src="data/tasks.js"></script><script src="js/common.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 </head>
 <body>
   <header><a class="button secondary" href="index.html">← トップ画面へ戻る</a><h1>オンラインで対戦</h1></header>
   <p id="connectionNotice" class="status" aria-live="polite">未接続</p><button class="button danger hidden" id="globalResetBtn">切断して接続画面へ戻る</button>
-  <p class="note">サーバーを使わず、接続コードを交換してブラウザ同士を直接つなぎます。名前と合言葉を入力してください。合言葉は認証用ではなく、対戦相手との照合用です。</p>
+  <p class="note">名前と合言葉だけで部屋を作成・検索できます。接続時はPeerJS Cloudが待ち合わせを仲介し、接続後の対戦データはブラウザー同士で直接通信します。合言葉は認証用ではなく、部屋を見つけるための文字列です。</p>
   <section class="card" id="connectPanel">
     <h2>1. プレイヤー情報</h2>
     <div class="formrow"><label>プレイヤー名 <input id="name" maxlength="24" value="プレイヤー"></label><label>合言葉 <input id="phrase" maxlength="80" type="password" autocomplete="off"></label></div>
-    <h2>2. 接続コードを交換</h2>
-    <div class="columns">
-      <div><h3>部屋を作る人（A）</h3><button class="button primary" id="createBtn">部屋を作成してOfferを作る</button><label class="field">自分のOfferコード<textarea id="offerOut" readonly placeholder="作成するとここに表示されます"></textarea></label><button class="button secondary" data-copy="offerOut">Offerをコピー</button><label class="field">相手のAnswerコード<textarea id="answerIn" placeholder="相手から受け取ったAnswerを貼り付け"></textarea></label><button class="button primary" id="acceptAnswerBtn">Answerを適用して接続</button></div>
-      <div><h3>参加する人（B）</h3><label class="field">相手のOfferコード<textarea id="offerIn" placeholder="部屋を作った人から受け取ったOfferを貼り付け"></textarea></label><button class="button primary" id="answerBtn">Offerを適用してAnswerを作る</button><label class="field">自分のAnswerコード<textarea id="answerOut" readonly placeholder="作成するとここに表示されます"></textarea></label><button class="button secondary" data-copy="answerOut">Answerをコピー</button></div>
-    </div>
+    <h2>2. 同じ合言葉の部屋に接続</h2>
+    <p>両者が同じプレイヤー名・合言葉を入力し、このボタンを押します。先に押した側が募集を始め、後から押した側は自動で参加します。合言葉が長く、他の人と重ならないほど、意図しない相手が入る可能性を下げられます。</p>
+    <button class="button primary" id="createBtn">合言葉で相手を募集・検索</button>
     <p id="status" class="status">未接続</p><p id="error" class="error" role="alert"></p>
-    <details><summary>接続できない場合</summary><p>Offer/AnswerはICE情報を含むため長い場合があります。コード全体を省略せず交換してください。ICE候補の収集には時間がかかることがあります。VPN、学校や会社のファイアウォール、厳しいNATなどでは直接接続できず、TURN中継もないため接続できない場合があります。その場合は別のネットワーク（自宅Wi‑Fiやテザリング）で両方とも新しいコードを作り直してください。 HTTPSまたはlocalhostで開いてください。</p><button class="button danger" id="resetBtn">接続をリセット</button></details>
+    <details><summary>接続できない場合とプライバシー</summary><p>PeerJS Cloudへの通信にはインターネット接続が必要です。PeerJS Cloudが接続情報の交換を仲介しますが、対戦データはWebRTCで直接送ります。厳しいNAT、VPN、学校や会社のファイアウォールでは直接接続できない場合があります。参加側は部屋が見つかるまで約48秒間再試行します。うまくいかない場合は別ネットワークで試してください。HTTPSまたはlocalhostで開いてください。</p><p>合言葉から部屋IDを作ります。合言葉は秘密のパスワードではありません。短く推測しやすい合言葉は第三者に見つけられるおそれがあります。また、同じサイト上で同じ合言葉を同時に使う部屋は一つだけです。</p><button class="button danger" id="resetBtn">接続をリセット</button></details>
   </section>
   <section class="card hidden" id="lobby">
     <h2>3. お手本を選んで合意</h2><p>同じ級・課題を選び、「この課題を提案」を押してください。相手の提案内容と照合し、双方が同じ課題に同意すると準備できます。</p>

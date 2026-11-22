@@ -2,71 +2,61 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const sections = ["lobby", "game", "results"];
-  let pc = null, channel = null, role = "", localName = "", phrase = "", remoteName = "";
+  let peer = null, channel = null, role = "", localName = "", phrase = "", remoteName = "", roomId = "";
+  let helloSent = false, helloReceived = false, connected = false, joinAttempts = 0, joinTimer = null, connectionTimer = null;
   let proposal = null, agreed = false, ownReady = false, remoteReady = false, gameStarted = false;
   let target = "", startedAt = 0, elapsed = 0, ticker = null, sendTicker = null, countdownToken = 0;
   let ownDone = false, remoteDone = false, ownResult = null, remoteResult = null, lastPayload = "";
-  const MAX_CODE = 1500000;
   function status(s) { $("status").textContent = s; $("connectionNotice").textContent = s; }
   function error(s) { $("error").textContent = s || ""; }
+  function setCredentialsDisabled(disabled) { $("name").disabled=disabled;$("phrase").disabled=disabled;$("createBtn").disabled=disabled; }
   function showSection(id) { sections.forEach(x => $(x).classList.toggle("hidden", x !== id)); }
   function setConnected() {
-    status(`接続済み：${remoteName} さん`); $("globalResetBtn").classList.remove("hidden"); error(""); $("connectPanel").classList.add("hidden");
-    $("lobby").classList.remove("hidden"); populateTasks(); send({type:"hello", name:localName, phrase});
+    if(connected)return;connected=true;status(`接続済み：${remoteName} さん`); $("globalResetBtn").classList.remove("hidden"); error(""); $("connectPanel").classList.add("hidden");
+    $("lobby").classList.remove("hidden"); populateTasks();
   }
   function validateNameAndPhrase() {
-    localName = $("name").value.trim().slice(0,24); phrase = $("phrase").value;
+    localName = $("name").value.trim().slice(0,24); phrase = $("phrase").value.trim().normalize("NFKC");
     if (!localName) throw Error("プレイヤー名を入力してください。");
     if (!phrase.trim()) throw Error("合言葉を入力してください。");
   }
-  function newPeer(initiator) {
-    if (pc) pc.close(); pc = new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
-    pc.onconnectionstatechange = () => {
-      if (["failed","disconnected","closed"].includes(pc.connectionState)) { status("相手との接続が切れました。勝敗は確定していません。接続をリセットし、両方で新しいOffer/Answerを交換してください。"); }
-    };
-    pc.oniceconnectionstatechange = () => { if (pc.iceConnectionState === "failed") error("直接接続に失敗しました。別ネットワークで新しい接続コードを作成してください。TURN中継はありません。"); };
-    pc.ondatachannel = e => bindChannel(e.channel);
-    if (initiator) bindChannel(pc.createDataChannel("zensho-match", {ordered:true}));
+  async function getRoomId() {
+    if(!window.crypto?.subtle) throw Error("安全な接続（HTTPSまたはlocalhost）が必要です。");
+    const appPath=location.pathname.replace(/[^/]*$/, "");
+    const source=`zensho-typing-room-v1|${location.origin}${appPath}|${phrase.trim().normalize("NFKC")}`;
+    const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(source));
+    return "zs-"+Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("");
   }
-  function bindChannel(ch) {
-    channel = ch;
-    channel.onopen = () => status("データ接続済み。合言葉を確認しています…");
-    channel.onclose = () => status("相手との接続が切れました。勝敗は確定していません。接続をリセットし、両方で新しいOffer/Answerを交換してください。");
-    channel.onmessage = e => {
-      if (typeof e.data !== "string" || e.data.length > 100000) return;
-      try { const m = JSON.parse(e.data); if (!m || typeof m.type !== "string") return; receive(m); } catch (_) { error("相手から不正な通信データを受信しました。"); }
-    };
+  function peerOptions(){return {debug:1,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"}]}};}
+  function bindChannel(conn) {
+    channel=conn; conn.on("open",()=>{status("相手と接続しました。名前と合言葉を確認しています…");sendHello();});
+    conn.on("close",()=>{if(channel===conn)channel=null;if(connected)status("相手との接続が切れました。勝敗は確定していません。両方で部屋を作り直してください。");});
+    conn.on("error",e=>{if(role==="B"&&!connected){if(channel===conn)channel=null;scheduleJoin();}else error(`接続エラー：${e.message||e.type||"ネットワークを確認してください"}`);});
+    conn.on("data",data=>{let m=data;if(typeof data==="string"){if(data.length>100000)return;try{m=JSON.parse(data);}catch(_){return;}}if(!m||typeof m.type!=="string")return;receive(m);});
   }
-  function send(m) { if (channel && channel.readyState === "open") channel.send(JSON.stringify(m)); }
-  function waitIce() {
-    if (pc.iceGatheringState === "complete") return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => { pc.removeEventListener("icegatheringstatechange", done); reject(Error("ICE候補の収集が時間切れになりました。もう一度コードを作成してください。")); }, 45000);
-      function done() { if (pc.iceGatheringState === "complete") { clearTimeout(timeout); pc.removeEventListener("icegatheringstatechange", done); resolve(); } }
-      pc.addEventListener("icegatheringstatechange", done);
-    });
+  function send(m) { if (channel && channel.open) channel.send(m); }
+  function sendHello(){if(helloSent||!channel||!channel.open)return;helloSent=true;send({type:"hello",name:localName,phrase});}
+  async function createRoom() {
+    if($("createBtn").disabled)return;setCredentialsDisabled(true);
+    try { error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="A";helloSent=helloReceived=connected=false;status("部屋を作成しています…");peer=new Peer(roomId,peerOptions());
+      const roomPeer=peer;peer.on("open",()=>{if(peer===roomPeer)status("部屋を作りました。相手が同じ合言葉で参加するのを待っています。");});
+      peer.on("connection",conn=>{if(channel){conn.close();return;}bindChannel(conn);});
+      peer.on("error",e=>{if(e.type==="unavailable-id"&&peer===roomPeer){peer=null;role="";roomPeer.destroy();status("募集済みの相手が見つかりました。参加しています…");joinRoom();}else if(peer===roomPeer){setCredentialsDisabled(false);error(`部屋を作れません：${e.message||e.type||"通信エラー"}`);status("相手を探せませんでした。");}});
+    }catch(e){setCredentialsDisabled(false);error(e.message);status("相手を探せませんでした。");}
   }
-  function parseCode(raw, kind) {
-    if (raw.length > MAX_CODE) throw Error("接続コードが大きすぎます。");
-    let x; try { x = JSON.parse(raw); } catch (_) { throw Error("接続コードのJSONを読み取れません。全文を貼り付けてください。"); }
-    if (!x || x.kind !== kind || !x.description || typeof x.description.sdp !== "string" || x.description.sdp.length > MAX_CODE) throw Error(`この欄には正しい${kind === "offer" ? "Offer" : "Answer"}コードを貼り付けてください。`);
-    return x.description;
+  function tryJoin() {
+    if(role!=="B"||connected||!peer)return;if(joinAttempts>=12){const oldPeer=peer;peer=null;role="";oldPeer.destroy();setCredentialsDisabled(false);status("部屋が見つかりません。相手に先に同じボタンを押してもらい、合言葉を確認してください。");return;}joinAttempts++;status(`同じ合言葉の部屋を検索中… (${joinAttempts}/12)`);
+    const conn=peer.connect(roomId,{reliable:true,serialization:"json"});bindChannel(conn);
+    connectionTimer=setTimeout(()=>{if(!connected&&!conn.open&&channel===conn){channel=null;conn.close();scheduleJoin();}},2500);
   }
-  function makeCode(kind) { return JSON.stringify({kind, description:pc.localDescription}); }
-  $("createBtn").onclick = async () => { try {
-    error(""); validateNameAndPhrase(); newPeer(true); role="A"; status("Offerを作成中… ICE情報を集めています。");
-    await pc.setLocalDescription(await pc.createOffer()); await waitIce(); $("offerOut").value = makeCode("offer"); status("Offerを作成しました。A側のコードを相手に渡してください。");
-  } catch(e) { error(e.message); status("Offerを作成できませんでした。"); } };
-  $("answerBtn").onclick = async () => { try {
-    error(""); validateNameAndPhrase(); const offer = parseCode($("offerIn").value.trim(), "offer"); newPeer(false); status("Offerを確認し、Answerを作成中…");
-    await pc.setRemoteDescription(offer); role="B"; await pc.setLocalDescription(await pc.createAnswer()); await waitIce(); $("answerOut").value = makeCode("answer"); status("Answerを作成しました。AnswerコードをA側へ渡してください。");
-  } catch(e) { error(e.message); status("Offerを読み取れませんでした。コードを確認してください。"); } };
-  $("acceptAnswerBtn").onclick = async () => { try {
-    error(""); if (!pc || !pc.localDescription || pc.localDescription.type !== "offer") throw Error("先にOfferを作成してください。");
-    await pc.setRemoteDescription(parseCode($("answerIn").value.trim(), "answer")); status("Answerを適用しました。相手の接続を待っています…");
-  } catch(e) { error(e.message); } };
-  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { const el=$(b.dataset.copy); if (!el.value) return error("先に接続コードを作成してください。"); try { await navigator.clipboard.writeText(el.value); status("接続コードをコピーしました。"); } catch (_) { el.focus(); el.select(); document.execCommand("copy"); status("接続コードを選択しました。コピーしてください。"); } });
-  function resetConnection() { countdownToken++;if(ticker)clearInterval(ticker);if(sendTicker)clearInterval(sendTicker);if(pc){pc.onconnectionstatechange=null;pc.oniceconnectionstatechange=null;pc.close();} pc=null;channel=null;role="";gameStarted=false;startedAt=0;$("globalResetBtn").classList.add("hidden");["offerOut","offerIn","answerOut","answerIn"].forEach(id=>$(id).value=""); $("connectPanel").classList.remove("hidden"); sections.forEach(x=>$(x).classList.add("hidden")); error("");status("未接続。両者で新しいOffer/Answerを交換してください。"); }
+  function scheduleJoin(){if(joinTimer||role!=="B"||connected)return;joinTimer=setTimeout(()=>{joinTimer=null;tryJoin();},1500);}
+  async function joinRoom() {
+    try {error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="B";helloSent=helloReceived=connected=false;joinAttempts=0;status("待ち合わせサービスへ接続しています…");peer=new Peer(undefined,peerOptions());
+      peer.on("open",()=>tryJoin());peer.on("error",e=>{if(role==="B"&&!connected){if(e.type==="peer-unavailable")scheduleJoin();else{const oldPeer=peer;peer=null;role="";oldPeer?.destroy();setCredentialsDisabled(false);error(`待ち合わせサービスに接続できません：${e.message||e.type}`);}}});
+    }catch(e){setCredentialsDisabled(false);error(e.message);status("参加できませんでした。");}
+  }
+  $("createBtn").onclick=createRoom;
+  function resetConnection() { countdownToken++;if(joinTimer)clearTimeout(joinTimer);if(connectionTimer)clearTimeout(connectionTimer);if(ticker)clearInterval(ticker);if(sendTicker)clearInterval(sendTicker);if(peer)peer.destroy();peer=null;channel=null;role="";gameStarted=false;startedAt=0;helloSent=helloReceived=connected=false;joinAttempts=0;setCredentialsDisabled(false);$("globalResetBtn").classList.add("hidden");$("connectPanel").classList.remove("hidden");sections.forEach(x=>$(x).classList.add("hidden"));error("");status("未接続。名前と合言葉を入力し、相手と同じボタンを押してください。"); }
   $("resetBtn").onclick=resetConnection; $("lobbyResetBtn").onclick=resetConnection;$("globalResetBtn").onclick=resetConnection;
   function receive(m) {
     if (m.type === "hello") {
