@@ -21,12 +21,16 @@
     <details><summary>接続できない場合とプライバシー</summary><p>PeerJS Cloudへの通信にはインターネット接続が必要です。PeerJS Cloudが接続情報の交換を仲介しますが、対戦データはWebRTCで直接送ります。厳しいNAT、VPN、学校や会社のファイアウォールでは直接接続できない場合があります。参加側は部屋が見つかるまで約48秒間再試行します。うまくいかない場合は別ネットワークで試してください。HTTPSまたはlocalhostで開いてください。</p><p>合言葉から部屋IDを作ります。合言葉は秘密のパスワードではありません。短く推測しやすい合言葉は第三者に見つけられるおそれがあります。また、同じサイト上で同じ合言葉を同時に使う部屋は一つだけです。</p><button class="button danger" id="resetBtn">接続をリセット</button></details>
   </section>
   <section class="card hidden" id="lobby">
-    <h2>3. お手本を選んで合意</h2><p>同じ級・課題を選び、「この課題を提案」を押してください。相手の提案内容と照合し、双方が同じ課題に同意すると準備できます。</p>
+    <h2>対戦ルーム</h2>
+    <div class="player"><p><strong>あなた：</strong><span id="roomSelf">—</span></p><p><strong>相手：</strong><span id="roomOpponent">相手を待っています…</span></p><p id="roomStatus" class="status" aria-live="polite">部屋を準備しています…</p><p id="roomError" class="error" role="alert"></p></div>
+    <p><button class="button danger" id="lobbyResetBtn">部屋を閉じて戻る</button></p>
+    <div id="matchSetup" class="hidden">
+    <h2>お手本を選んで合意</h2><p>同じ級・課題を選び、「この課題を提案」を押してください。相手の提案内容を確認し、双方が同じ課題に同意すると対戦準備ができます。</p>
     <div class="formrow"><label>級 <select id="grade"><option value="3">3級</option><option value="2">2級</option><option value="1">1級</option></select></label><label>課題 <select id="task"></select></label></div>
     <button class="button secondary" id="proposeBtn">この課題を提案</button><button class="button primary" id="agreeBtn" disabled>相手の提案に同意</button>
     <p id="proposalStatus" class="status">課題を選んで提案してください。</p><label class="field">お手本<textarea id="sample" readonly></textarea></label>
     <button class="button success" id="readyBtn" disabled>準備完了</button><span id="readyStatus" class="status"></span>
-    <p><button class="button danger" id="lobbyResetBtn">接続をリセットして戻る</button></p>
+    </div>
   </section>
   <section class="card hidden" id="game">
     <div id="countdown" class="countdown hidden">3</div>
