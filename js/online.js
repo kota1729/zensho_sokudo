@@ -3,18 +3,20 @@
   const $ = id => document.getElementById(id);
   const sections = ["lobby", "game", "results"];
   let peer = null, channel = null, role = "", localName = "", phrase = "", remoteName = "", roomId = "";
-  let helloSent = false, helloReceived = false, connected = false, joinAttempts = 0, joinTimer = null, connectionTimer = null;
+  let helloSent = false, helloReceived = false, helloAttempts = 0, helloTimer = null, connected = false, joinAttempts = 0, joinTimer = null, connectionTimer = null;
   let proposal = null, agreed = false, ownReady = false, remoteReady = false, gameStarted = false;
   let target = "", startedAt = 0, elapsed = 0, ticker = null, sendTicker = null, countdownToken = 0;
   let ownDone = false, remoteDone = false, ownResult = null, remoteResult = null, lastPayload = "";
-  function status(s) { $("status").textContent = s; $("connectionNotice").textContent = s; }
-  function error(s) { $("error").textContent = s || ""; }
+  function status(s) { $("status").textContent = s; $("connectionNotice").textContent = s; $("roomStatus").textContent=s; }
+  function error(s) { $("error").textContent = s || ""; $("roomError").textContent=s||""; }
   function setCredentialsDisabled(disabled) { $("name").disabled=disabled;$("phrase").disabled=disabled;$("createBtn").disabled=disabled; }
   function showSection(id) { sections.forEach(x => $(x).classList.toggle("hidden", x !== id)); }
   function setConnected() {
-    if(connected)return;connected=true;status(`接続済み：${remoteName} さん`); $("globalResetBtn").classList.remove("hidden"); error(""); $("connectPanel").classList.add("hidden");
-    $("lobby").classList.remove("hidden"); populateTasks();
+    const wasConnected=connected;
+    if(helloTimer)clearTimeout(helloTimer);status(`接続済み：${remoteName} さん`); $("globalResetBtn").classList.remove("hidden"); error(""); $("connectPanel").classList.add("hidden");
+    $("lobby").classList.remove("hidden");$("roomSelf").textContent=localName;$("roomOpponent").textContent=remoteName;$("matchSetup").classList.remove("hidden");if(!wasConnected)populateTasks();connected=true;
   }
+  function openRoom(message) { $("connectPanel").classList.add("hidden");showSection("lobby");$("roomSelf").textContent=localName||"—";$("roomOpponent").textContent="相手を待っています…";$("matchSetup").classList.add("hidden");status(message); }
   function validateNameAndPhrase() {
     localName = $("name").value.trim().slice(0,24); phrase = $("phrase").value.trim().normalize("NFKC");
     if (!localName) throw Error("プレイヤー名を入力してください。");
@@ -30,16 +32,21 @@
   function peerOptions(){return {debug:1,config:{iceServers:[{urls:"stun:stun.l.google.com:19302"}]}};}
   function bindChannel(conn) {
     channel=conn; conn.on("open",()=>{status("相手と接続しました。名前と合言葉を確認しています…");sendHello();});
-    conn.on("close",()=>{if(channel===conn)channel=null;if(connected)status("相手との接続が切れました。勝敗は確定していません。両方で部屋を作り直してください。");});
+    conn.on("close",()=>{if(helloTimer)clearTimeout(helloTimer);if(channel===conn)channel=null;if(connected)status("相手との接続が切れました。勝敗は確定していません。両方で部屋を作り直してください。");});
     conn.on("error",e=>{if(role==="B"&&!connected){if(channel===conn)channel=null;scheduleJoin();}else error(`接続エラー：${e.message||e.type||"ネットワークを確認してください"}`);});
     conn.on("data",data=>{let m=data;if(typeof data==="string"){if(data.length>100000)return;try{m=JSON.parse(data);}catch(_){return;}}if(!m||typeof m.type!=="string")return;receive(m);});
   }
   function send(m) { if (channel && channel.open) channel.send(m); }
-  function sendHello(){if(helloSent||!channel||!channel.open)return;helloSent=true;send({type:"hello",name:localName,phrase});}
+  function sendHello(){
+    if(connected||helloReceived||!channel)return;
+    if(channel.open){send({type:"hello",name:localName,phrase});helloSent=true;helloAttempts++;}
+    if(helloAttempts<12)helloTimer=setTimeout(sendHello,700);
+    else status("データ接続はできましたが、相手の確認応答が届きません。両者で「部屋を閉じて戻る」を押し、同じ合言葉で接続し直してください。");
+  }
   async function createRoom() {
     if($("createBtn").disabled)return;setCredentialsDisabled(true);
-    try { error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="A";helloSent=helloReceived=connected=false;status("部屋を作成しています…");peer=new Peer(roomId,peerOptions());
-      const roomPeer=peer;peer.on("open",()=>{if(peer===roomPeer)status("部屋を作りました。相手が同じ合言葉で参加するのを待っています。");});
+    try { error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="A";helloSent=helloReceived=connected=false;helloAttempts=0;status("部屋を作成しています…");peer=new Peer(roomId,peerOptions());
+      const roomPeer=peer;peer.on("open",()=>{if(peer===roomPeer)openRoom("募集を開始しました。同じ合言葉の相手が入室するまでお待ちください。");});
       peer.on("connection",conn=>{if(channel){conn.close();return;}bindChannel(conn);});
       peer.on("error",e=>{if(e.type==="unavailable-id"&&peer===roomPeer){peer=null;role="";roomPeer.destroy();status("募集済みの相手が見つかりました。参加しています…");joinRoom();}else if(peer===roomPeer){setCredentialsDisabled(false);error(`部屋を作れません：${e.message||e.type||"通信エラー"}`);status("相手を探せませんでした。");}});
     }catch(e){setCredentialsDisabled(false);error(e.message);status("相手を探せませんでした。");}
@@ -51,17 +58,19 @@
   }
   function scheduleJoin(){if(joinTimer||role!=="B"||connected)return;joinTimer=setTimeout(()=>{joinTimer=null;tryJoin();},1500);}
   async function joinRoom() {
-    try {error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="B";helloSent=helloReceived=connected=false;joinAttempts=0;status("待ち合わせサービスへ接続しています…");peer=new Peer(undefined,peerOptions());
+    try {error("");validateNameAndPhrase();if(!window.Peer)throw Error("PeerJSを読み込めません。インターネット接続を確認してページを再読み込みしてください。");roomId=await getRoomId();role="B";helloSent=helloReceived=connected=false;helloAttempts=0;joinAttempts=0;openRoom("同じ合言葉の部屋を検索しています…");peer=new Peer(undefined,peerOptions());
       peer.on("open",()=>tryJoin());peer.on("error",e=>{if(role==="B"&&!connected){if(e.type==="peer-unavailable")scheduleJoin();else{const oldPeer=peer;peer=null;role="";oldPeer?.destroy();setCredentialsDisabled(false);error(`待ち合わせサービスに接続できません：${e.message||e.type}`);}}});
     }catch(e){setCredentialsDisabled(false);error(e.message);status("参加できませんでした。");}
   }
   $("createBtn").onclick=createRoom;
-  function resetConnection() { countdownToken++;if(joinTimer)clearTimeout(joinTimer);if(connectionTimer)clearTimeout(connectionTimer);if(ticker)clearInterval(ticker);if(sendTicker)clearInterval(sendTicker);if(peer)peer.destroy();peer=null;channel=null;role="";gameStarted=false;startedAt=0;helloSent=helloReceived=connected=false;joinAttempts=0;setCredentialsDisabled(false);$("globalResetBtn").classList.add("hidden");$("connectPanel").classList.remove("hidden");sections.forEach(x=>$(x).classList.add("hidden"));error("");status("未接続。名前と合言葉を入力し、相手と同じボタンを押してください。"); }
+  function resetConnection() { countdownToken++;if(helloTimer)clearTimeout(helloTimer);if(joinTimer)clearTimeout(joinTimer);if(connectionTimer)clearTimeout(connectionTimer);if(ticker)clearInterval(ticker);if(sendTicker)clearInterval(sendTicker);if(peer)peer.destroy();peer=null;channel=null;role="";gameStarted=false;startedAt=0;helloSent=helloReceived=connected=false;helloAttempts=joinAttempts=0;setCredentialsDisabled(false);$("globalResetBtn").classList.add("hidden");$("connectPanel").classList.remove("hidden");sections.forEach(x=>$(x).classList.add("hidden"));error("");status("未接続。名前と合言葉を入力し、相手と同じボタンを押してください。"); }
   $("resetBtn").onclick=resetConnection; $("lobbyResetBtn").onclick=resetConnection;$("globalResetBtn").onclick=resetConnection;
+  window.addEventListener("pagehide",()=>{if(peer){try{peer.destroy();}catch(_){}peer=null;channel=null;}});
   function receive(m) {
     if (m.type === "hello") {
       if (typeof m.name !== "string" || m.name.length > 24 || typeof m.phrase !== "string" || m.phrase.length > 80) return;
       remoteName=m.name; if (m.phrase !== phrase) { error("合言葉が一致しません。接続をリセットして、同じ合言葉でやり直してください。"); status("合言葉不一致"); channel.close(); return; }
+      helloReceived=true;if(helloTimer)clearTimeout(helloTimer);
       $("ownTitle").textContent=`自分：${localName}`; $("opponentTitle").textContent=`相手：${remoteName}`; setConnected(); return;
     }
     if (!remoteName) return;
