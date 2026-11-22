@@ -887,7 +887,7 @@
       </select>
       </span>
       <button class="btn btn-secondary" onclick="toggleHistoryModal()">📊 記録を見る</button>
-      <button class="btn btn-info" onclick="Battle.openLobby()">🥊 オンライン対戦</button>
+      <button class="btn btn-info" onclick="if (window.Battle) { Battle.openLobby(); } else { alert('js/battle.js が読み込めていません。js フォルダ（battle.js・common.js）と data フォルダを含めてアップロードしているか確認してください。'); }">🥊 オンライン対戦</button>
     </div>
   </div>
 
@@ -904,6 +904,7 @@
         <button id="battleConnectBtn" class="btn btn-primary" onclick="Battle.connect()">接続する</button>
         <button class="btn btn-secondary" onclick="Battle.closeLobby()">← 練習ページに戻る</button>
       </div>
+      <div id="battleConnectStatus" class="battle-hint"></div>
     </div>
 
     <div id="battleRoom" style="display: none;">
@@ -929,6 +930,7 @@
         <button id="battleReadyBtn" class="btn btn-success" onclick="Battle.toggleReady()">準備OK</button>
       </div>
       <div id="battleMsg" style="text-align: center;"></div>
+      <div id="battleDiag" class="battle-hint" style="text-align: center; white-space: pre-wrap;"></div>
       <div class="battle-row" style="justify-content: center;">
         <button class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;" onclick="Battle.leave()">退室する</button>
       </div>

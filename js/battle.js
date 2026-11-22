@@ -11,11 +11,15 @@
   "use strict";
 
   var APP_ID = "zensho-typing-battle-v1";
-  var LIB_URLS = [
-    "https://cdn.jsdelivr.net/npm/@trystero-p2p/mqtt@0.25.4/+esm",
-    "https://cdn.jsdelivr.net/npm/@trystero-p2p/torrent@0.25.3/+esm",
-    "https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm"
+  var LIBS = [
+    { name: "MQTT", url: "https://cdn.jsdelivr.net/npm/@trystero-p2p/mqtt@0.25.4/+esm" },
+    { name: "BitTorrent", url: "https://cdn.jsdelivr.net/npm/@trystero-p2p/torrent@0.25.3/+esm" },
+    { name: "Nostr", url: "https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm" }
   ];
+  var LOAD_TIMEOUT_MS = 12000;
+  var strategyName = "";
+  var relayInfo = function () { return ""; };
+  var waitTimer = null;
   var NAME_KEY = "zensho_battle_name";
 
   var $ = function (id) { return document.getElementById(id); };
@@ -77,15 +81,46 @@
     }
   }
 
+  function withTimeout(p, ms, label) {
+    return new Promise(function (resolve, reject) {
+      var t = setTimeout(function () { reject(new Error(label + " の読み込みがタイムアウトしました")); }, ms);
+      p.then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
+    });
+  }
+
+  function setConnectStatus(text) {
+    var el = $("battleConnectStatus");
+    if (el) el.textContent = text;
+    console.log("[battle] " + text);
+  }
+
   function loadLibrary() {
     var i = 0;
+    var errors = [];
     function next() {
-      if (i >= LIB_URLS.length) return Promise.reject(new Error("接続用ライブラリを読み込めませんでした"));
-      var url = LIB_URLS[i++];
-      return import(url).then(function (mod) {
-        if (!mod || typeof mod.joinRoom !== "function") throw new Error("bad module");
+      if (i >= LIBS.length) {
+        return Promise.reject(new Error("接続用ライブラリを読み込めませんでした。\n" + errors.join("\n")));
+      }
+      var lib = LIBS[i++];
+      setConnectStatus("接続用ライブラリ（" + lib.name + "）を読み込み中…");
+      return withTimeout(import(lib.url), LOAD_TIMEOUT_MS, lib.name).then(function (mod) {
+        if (!mod || typeof mod.joinRoom !== "function") throw new Error("joinRoom がありません");
+        strategyName = lib.name;
+        relayInfo = function () {
+          try {
+            if (typeof mod.getRelaySockets !== "function") return "";
+            var socks = mod.getRelaySockets();
+            var list = Array.isArray(socks) ? socks : Object.keys(socks || {}).map(function (k) { return socks[k]; });
+            var open = list.filter(function (s) { return s && s.readyState === 1; }).length;
+            return "中継サーバー接続 " + open + "/" + list.length;
+          } catch (e) { return ""; }
+        };
         return mod;
-      }).catch(next);
+      }).catch(function (e) {
+        console.warn("[battle] " + lib.name + " 失敗", e);
+        errors.push(lib.name + ": " + (e && e.message ? e.message : e));
+        return next();
+      });
     }
     return next();
   }
@@ -146,6 +181,7 @@
 
     $("battleConnectBtn").disabled = true;
     $("battleConnectBtn").textContent = "接続中…";
+    setConnectStatus("接続を準備しています…");
 
     createTransport(pass).then(function (t) {
       net = t;
@@ -177,6 +213,8 @@
       net.onPeerLeave(onPeerLeave);
       net.onMessage(onMessage);
 
+      setConnectStatus("");
+      startWaitDiagnostics();
       $("battleConnect").style.display = "none";
       $("battleRoom").style.display = "block";
       $("battleMe").textContent = me.name;
@@ -185,9 +223,28 @@
     }).catch(function (e) {
       $("battleConnectBtn").disabled = false;
       $("battleConnectBtn").textContent = "接続する";
+      setConnectStatus("接続に失敗しました");
       customAlert("接続できませんでした。\n" + (e && e.message ? e.message : e) + "\n\nインターネット接続や、学校ネットワークの制限を確認してください。");
     });
   };
+
+  // 相手が見つからない間、接続状況を表示して原因を見つけやすくする
+  function startWaitDiagnostics() {
+    clearInterval(waitTimer);
+    var t0 = Date.now();
+    waitTimer = setInterval(function () {
+      var el = $("battleDiag");
+      if (!el) return;
+      if (!Battle.active || opp) { el.textContent = ""; return; }
+      var sec = Math.floor((Date.now() - t0) / 1000);
+      var txt = "接続方式: " + strategyName + "　" + relayInfo() + "　待機 " + sec + "秒";
+      if (sec >= 20) {
+        txt += "\n相手が見つかりません。次を確認してください：①合言葉が一字一句同じか（全角/半角・大文字小文字も区別） ②相手も「接続する」を押したか ③中継サーバー接続が 0 のときは、ネットワーク（学校・会社の回線）が通信を止めている可能性があります。";
+      }
+      el.textContent = txt;
+      console.log("[battle] " + txt.replace(/\n/g, " "));
+    }, 1000);
+  }
 
   Battle.leave = function () {
     if (phase === "playing" && !myFinished) {
@@ -204,6 +261,7 @@
     net = null;
     clearTimeout(progTimer);
     progTimer = null;
+    clearInterval(waitTimer);
     Battle.active = false;
     phase = "off";
     peers = {};
@@ -219,6 +277,7 @@
     $("battleConnect").style.display = "block";
     $("battleConnectBtn").disabled = false;
     $("battleConnectBtn").textContent = "接続する";
+    setConnectStatus("");
   }
 
   // ==================================================
