@@ -946,13 +946,15 @@
   function renderOpp() {
     if (!oppState || !opp) return;
     $("oppName").textContent = opp.name;
-    $("oppCount").textContent = "入力 " + ZenshoCommon.countChars(oppState.text, true) + "字";
+    // 採点と同じルールで、文の途中の余計な改行は表示から除く（段落の区切りの改行は残す）
+    var shown = ZenshoCommon.joinBrokenLines(ZenshoCommon.normalizeNewlines(oppState.text));
+    $("oppCount").textContent = "入力 " + ZenshoCommon.countChars(shown, true) + "字";
     $("oppStatus").textContent = oppState.dc ? "🔌 切断" : (oppState.finished ? "✅ 終了" : "⌨ 入力中");
     $("oppStatus").style.color = oppState.finished ? "#28a745" : "#d32f2f";
     $("oppToggleBtn").disabled = !(myFinished || phase === "done");
 
     var inp = $("oppInput");
-    inp.value = oppState.text;
+    inp.value = shown;
     inp.scrollTop = inp.scrollHeight;
     var tg = $("oppTarget");
     tg.scrollTop = oppState.scroll * lineHeightOf(tg);
